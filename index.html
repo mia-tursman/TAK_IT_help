@@ -8,7 +8,22 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { overflow-x: hidden; }
+    html, body {
+  overflow-x: hidden;
+  max-width: 100%;
+  width: 100%;
+}
+* {
+  max-width: 100%;
+}
+
+.bubble {
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+#app {
+  max-width: 100%;
+}
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       background: #f0ebe0;
@@ -161,6 +176,8 @@
     }
     #status-dot { width: 5px; height: 5px; border-radius: 50%; background: #e8400a; }
     #status-text { font-size: 11px; color: rgba(255,255,255,0.45); letter-spacing: 0.2px; }
+    @media (max-width: 600px){
+      #header-sub { display: none; }
   </style>
 </head>
 <body>
@@ -170,8 +187,7 @@
     <div id="header-left">
       <div>
         <div id="header-brand">takanock</div>
-        <div id="header-title">IT Help Desk</div>
-        <div id="header-sub">Submit a support request</div>
+        <div id="header-title">IT Help Desk — Submit a support request</div>
       </div>
     </div>
     <button id="new-btn" onclick="resetChat()">
