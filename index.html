@@ -218,26 +218,26 @@
 
   const SYSTEM_PROMPT = `You are the Takanock IT Help Desk intake assistant. Your job is to help Takanock employees submit IT support requests conversationally.
 
-When a user describes an issue, gather these fields through friendly conversation (don't ask for everything at once — let it flow naturally):
+Gather these fields through friendly conversation (don't ask for everything at once):
 - Submitter Name (full name)
-- Submitter Email (their Takanock email)
+- Submitter Email (Takanock email)
 - Department (Finance, Development, Engineering, Operations, GIS, Executive, Other)
 - Request Type (Hardware, Software, Access/Permissions, Network, Other)
-- Request Description (brief description of the issue)
-- Urgency (Low, Medium, High, Urgent) — infer from context if possible and confirm
-- Any steps already tried (add to description)
+- Request Description (description of the issue)
+- Urgency (Low, Medium, High, Urgent)
 
-Once you have enough info, summarize the ticket and confirm with the user. Say: "Here's what I'll log — does this look right?" followed by the summary.
+Once you have all fields, present a summary and ask the user to confirm.
 
-When the user confirms, respond with a JSON block in this exact format (and nothing else after it):
-SUBMIT_TICKET:{"name":"...","email":"...","department":"...","requestType":"...","description":"...","urgency":"..."}
+IMPORTANT: When the user confirms, you MUST respond with ONLY this exact JSON format and nothing else:
+{"name":"...","email":"...","department":"...","requestType":"...","description":"...","urgency":"..."}
 
-Then on a new line add a friendly confirmation message like: "Done! Your ticket has been submitted. Reference number: TKN-IT-XXXX"
+Do not add any other text, explanation, or confirmation message when outputting the JSON.`;
 
-Keep responses concise and friendly. Don't use jargon. If the issue is urgent (system down, security concern, can't work), flag it clearly.`;
+const CONFIRM_WORDS = ['yes', 'yeah', 'yep', 'correct', 'looks good', 'confirmed', 'confirm', 'submit', 'that looks right', 'looks right', 'go ahead', 'ok', 'okay'];
 
 let history = [];
 let isLoading = false;
+let awaitingConfirmation = false;
 
 async function sendMessage() {
   const input = document.getElementById('msg-input');
@@ -263,19 +263,24 @@ async function sendMessage() {
     });
 
     const data = await res.json();
-    let reply = data.content?.find(b => b.type === 'text')?.text || 'Sorry, something went wrong. Please try again.';
+    let reply = data.content?.find(b => b.type === 'text')?.text || 'Sorry, something went wrong.';
 
-    if (reply.includes('SUBMIT_TICKET:')) {
-      const jsonMatch = reply.match(/SUBMIT_TICKET:(\{.*?\})/s);
-      if (jsonMatch) {
-        const record = JSON.parse(jsonMatch[1]);
+    // Try to parse JSON ticket from reply
+    const jsonMatch = reply.match(/\{[\s\S]*"name"[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        const record = JSON.parse(jsonMatch[0]);
         await fetch('/api/proxy', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ airtable_record: record })
         });
-        reply = reply.replace(/SUBMIT_TICKET:\{.*?\}/s, '').trim();
-      }
+        const ref = 'TKN-IT-' + Math.floor(1000 + Math.random() * 9000);
+        reply = `Your ticket has been submitted! Reference number: ${ref}. Jacob from IT will be in touch soon.`;
+        awaitingConfirmation = false;
+      } catch(e) {}
+    } else if (reply.toLowerCase().includes('does this look right') || reply.toLowerCase().includes('here\'s what i\'ll log')) {
+      awaitingConfirmation = true;
     }
 
     history.push({ role: 'assistant', content: reply });
@@ -312,6 +317,7 @@ function setLoading(val) {
 
 function resetChat() {
   history = [];
+  awaitingConfirmation = false;
   const msgs = document.getElementById('messages');
   msgs.innerHTML = '';
   const wrap = document.createElement('div');
