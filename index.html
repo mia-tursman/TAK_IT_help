@@ -263,9 +263,12 @@ async function sendMessage() {
     let parsed = null;
     try {
       const clean = reply.trim();
+      console.log('MODEL REPLY:', clean);
       parsed = JSON.parse(clean);
-    } catch(e) {}
-
+    } catch(e) {
+      console.log('JSON PARSE FAILED:', e.message);
+    }
+    
     if (parsed && parsed.submitted === true) {
       // Write to Airtable
       await fetch('/api/proxy', {
