@@ -1,3 +1,13 @@
+function mapRequestType(val) {
+  if (!val) return 'Other';
+  const v = val.toLowerCase();
+  if (v.includes('access') || v.includes('permission')) return 'Permissions Issue';
+  if (v.includes('sharepoint')) return 'New SharePoint Site';
+  if (v.includes('hardware')) return 'Hardware Issue';
+  if (v.includes('dataset') || v.includes('data')) return 'New Dataset';
+  return 'Other';
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -20,7 +30,7 @@ export default async function handler(req, res) {
             'Submitter Name': airtable_record.name || '',
             'Submitter Email': airtable_record.email || '',
             'Department': airtable_record.department || '',
-            'Request Type': airtable_record.requestType || '',
+            'Request Type': mapRequestType(airtable_record.requestType),
             'Request Description': airtable_record.description || '',
             'Urgency': airtable_record.urgency || '',
             'Input Channel': 'Web App',
