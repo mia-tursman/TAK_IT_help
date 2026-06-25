@@ -202,106 +202,114 @@
 </div>
 
 <script>
-  // ⚠️ Replace with your actual Anthropic API key
-  const API_KEY = 'YOUR_ANTHROPIC_API_KEY';
-
   const SYSTEM_PROMPT = `You are the Takanock IT Help Desk intake assistant. Your job is to help Takanock employees submit IT support requests conversationally.
 
-When a user describes an issue, gather these fields through friendly conversation(don't ask for everything at once, but ask for the name and department at the same time first):
+Gather these fields through friendly conversation (ask for name and department first together):
 - Submitter Name (full name)
-- Submitter Email (Takanock email), Do not ask them, use the convention: first letter of first name, last name, @takanock.com. If my name is John Smith, jsmith@takanock.com.
--Request Type: (Hardware, Software, Access/Permissions, Network, Other)
-- Request Description: Brief description of the issue
-- Urgency: (Low, Medium, High, Urgent) — infer from context if possible and confirm
-- Any steps already tried
+- Submitter Email — do not ask, infer using convention: first letter of first name + last name + @takanock.com. John Smith = jsmith@takanock.com
+- Department (Finance, Development, Engineering, Operations, GIS, Executive, Other)
+- Request Type (Permissions Issue, New SharePoint Site, Hardware Issue, New Dataset, Other) — infer from context, do not ask directly
+- Request Description (brief description of the issue)
+- Urgency (Low, Medium, High, Urgent) — infer if possible, otherwise ask
 
-Once you have enough info, summarize the ticket and confirm with the user before logging it. Say something like: "Here's what I'll log — does this look right?" Then if they confirm, tell them the ticket has been submitted and give them a reference number (format: TKN-IT-XXXX with a random 4-digit number).
+Once you have all fields, present a summary and ask the user to confirm by saying "yes".
+When the user confirms, respond ONLY with this JSON and nothing else — no extra text before or after:
+{"submitted":true,"name":"VALUE","email":"VALUE","department":"VALUE","requestType":"VALUE","description":"VALUE","urgency":"VALUE"}`;
 
-Keep responses concise and friendly. Don't use jargon. If the user's issue is urgent (system down, security concern, can't work), flag it clearly.`;
+let history = [];
+let isLoading = false;
 
-  let history = [];
-  let isLoading = false;
+async function sendMessage() {
+  const input = document.getElementById('msg-input');
+  const text = input.value.trim();
+  if (!text || isLoading) return;
 
-  async function sendMessage() {
-    const input = document.getElementById('msg-input');
-    const text = input.value.trim();
-    if (!text || isLoading) return;
+  input.value = '';
+  input.style.height = 'auto';
+  appendMessage('user', text);
+  history.push({ role: 'user', content: text });
+  setLoading(true);
 
-    input.value = '';
-    input.style.height = 'auto';
-    appendMessage('user', text);
-    history.push({ role: 'user', content: text });
-    setLoading(true);
+  try {
+    const res = await fetch('/api/proxy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1000,
+        system: SYSTEM_PROMPT,
+        messages: history
+      })
+    });
 
+    const data = await res.json();
+    let reply = data.content?.find(b => b.type === 'text')?.text || 'Sorry, something went wrong.';
+
+    let parsed = null;
     try {
-     const res = await fetch('/api/proxy', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': API_KEY,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-allow-browser': 'true'
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 1000,
-          system: SYSTEM_PROMPT,
-          messages: history
-        })
-      });
+      parsed = JSON.parse(reply.trim());
+    } catch(e) {}
 
-      const data = await res.json();
-      const reply = data.content?.find(b => b.type === 'text')?.text || 'Sorry, something went wrong. Please try again.';
-      history.push({ role: 'assistant', content: reply });
-      appendMessage('assistant', reply);
-    } catch (e) {
-      appendMessage('assistant', 'Connection error — please try again.');
+    if (parsed && parsed.submitted === true) {
+      await fetch('/api/proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ airtable_record: parsed })
+      });
+      const ref = 'TKN-IT-' + Math.floor(1000 + Math.random() * 9000);
+      reply = `Your ticket has been submitted! Reference number: ${ref}. Jacob from IT will be in touch soon.`;
     }
 
-    setLoading(false);
+    history.push({ role: 'assistant', content: reply });
+    appendMessage('assistant', reply);
+  } catch (e) {
+    appendMessage('assistant', 'Connection error — please try again.');
   }
 
-  function appendMessage(role, text) {
-    const msgs = document.getElementById('messages');
-    const wrap = document.createElement('div');
-    wrap.className = `msg ${role}`;
-    const label = document.createElement('span');
-    label.className = 'msg-label';
-    label.textContent = role === 'user' ? 'You' : 'IT Help Desk';
-    const bubble = document.createElement('div');
-    bubble.className = 'bubble';
-    bubble.textContent = text;
-    wrap.appendChild(label);
-    wrap.appendChild(bubble);
-    msgs.appendChild(wrap);
-    msgs.scrollTop = msgs.scrollHeight;
-  }
+  setLoading(false);
+}
 
-  function setLoading(val) {
-    isLoading = val;
-    document.getElementById('typing').style.display = val ? 'flex' : 'none';
-    document.getElementById('send-btn').disabled = val;
-    if (val) document.getElementById('messages').scrollTop = 9999;
-  }
+function appendMessage(role, text) {
+  const msgs = document.getElementById('messages');
+  const wrap = document.createElement('div');
+  wrap.className = `msg ${role}`;
+  const label = document.createElement('span');
+  label.className = 'msg-label';
+  label.textContent = role === 'user' ? 'You' : 'IT Help Desk';
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  bubble.textContent = text;
+  wrap.appendChild(label);
+  wrap.appendChild(bubble);
+  msgs.appendChild(wrap);
+  msgs.scrollTop = msgs.scrollHeight;
+}
 
-  function resetChat() {
-    history = [];
-    const msgs = document.getElementById('messages');
-    msgs.innerHTML = '';
-    const wrap = document.createElement('div');
-    wrap.className = 'msg assistant';
-    wrap.innerHTML = '<span class="msg-label">IT Help Desk</span><div class="bubble">Hi! I\'m the Takanock IT Help Desk assistant. Tell me what\'s going on — I\'ll gather the details and log a ticket for you. What issue are you running into?</div>';
-    msgs.appendChild(wrap);
-  }
+function setLoading(val) {
+  isLoading = val;
+  document.getElementById('typing').style.display = val ? 'flex' : 'none';
+  document.getElementById('send-btn').disabled = val;
+  if (val) document.getElementById('messages').scrollTop = 9999;
+}
 
-  function handleKey(e) {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
-  }
+function resetChat() {
+  history = [];
+  const msgs = document.getElementById('messages');
+  msgs.innerHTML = '';
+  const wrap = document.createElement('div');
+  wrap.className = 'msg assistant';
+  wrap.innerHTML = '<span class="msg-label">IT Help Desk</span><div class="bubble">Hi! I\'m the Takanock IT Help Desk assistant. Tell me what\'s going on — I\'ll gather the details and log a ticket for you. What issue are you running into?</div>';
+  msgs.appendChild(wrap);
+}
 
-  function autoResize(el) {
-    el.style.height = 'auto';
-    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
-  }
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
 </script>
 
 </body>
