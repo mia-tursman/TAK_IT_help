@@ -218,26 +218,20 @@
 
   const SYSTEM_PROMPT = `You are the Takanock IT Help Desk intake assistant. Your job is to help Takanock employees submit IT support requests conversationally.
 
-Gather these fields through friendly conversation (don't ask for everything at once):
+Gather these fields through friendly conversation (don't ask for everything at once, but ask for the name, email, and department at the same time first):
 - Submitter Name (full name)
 - Submitter Email (Takanock email)
 - Department (Finance, Development, Engineering, Operations, GIS, Executive, Other)
-- Request Type (Hardware, Software, Access/Permissions, Network, Other)
+- Request Type (Hardware, Software, Access/Permissions, Network, Other) infer this from what they are asking for, do not ask directly
 - Request Description (description of the issue)
-- Urgency (Low, Medium, High, Urgent)
+- Urgency (Low, Medium, High, Urgent) try to infer this, if you can not decide what it is then ask them
 
-Once you have all fields, present a summary and ask the user to confirm.
-
-IMPORTANT: When the user confirms, you MUST respond with ONLY this exact JSON format and nothing else:
-{"name":"...","email":"...","department":"...","requestType":"...","description":"...","urgency":"..."}
-
-Do not add any other text, explanation, or confirmation message when outputting the JSON.`;
-
-const CONFIRM_WORDS = ['yes', 'yeah', 'yep', 'correct', 'looks good', 'confirmed', 'confirm', 'submit', 'that looks right', 'looks right', 'go ahead', 'ok', 'okay'];
+Once you have all fields, present a summary and ask the user to confirm by saying "yes".
+When the user confirms, respond ONLY with this JSON and nothing else — no extra text before or after:
+{"submitted":true,"name":"VALUE","email":"VALUE","department":"VALUE","requestType":"VALUE","description":"VALUE","urgency":"VALUE"}`;
 
 let history = [];
 let isLoading = false;
-let awaitingConfirmation = false;
 
 async function sendMessage() {
   const input = document.getElementById('msg-input');
@@ -265,25 +259,27 @@ async function sendMessage() {
     const data = await res.json();
     let reply = data.content?.find(b => b.type === 'text')?.text || 'Sorry, something went wrong.';
 
-    // Try to parse JSON ticket from reply
-    const jsonMatch = reply.match(/\{[\s\S]*"name"[\s\S]*\}/);
-    if (jsonMatch) {
-      try {
-        const record = JSON.parse(jsonMatch[0]);
-        await fetch('/api/proxy', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ airtable_record: record })
-        });
-        const ref = 'TKN-IT-' + Math.floor(1000 + Math.random() * 9000);
-        reply = `Your ticket has been submitted! Reference number: ${ref}. Jacob from IT will be in touch soon.`;
-        awaitingConfirmation = false;
-      } catch(e) {}
-    } else if (reply.toLowerCase().includes('does this look right') || reply.toLowerCase().includes('here\'s what i\'ll log')) {
-      awaitingConfirmation = true;
+    // Check if model returned a submission JSON
+    let parsed = null;
+    try {
+      const clean = reply.trim();
+      parsed = JSON.parse(clean);
+    } catch(e) {}
+
+    if (parsed && parsed.submitted === true) {
+      // Write to Airtable
+      await fetch('/api/proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ airtable_record: parsed })
+      });
+      const ref = 'TKN-IT-' + Math.floor(1000 + Math.random() * 9000);
+      reply = `Your ticket has been submitted! Reference number: ${ref}. Jacob from IT will be in touch soon.`;
+      history.push({ role: 'assistant', content: reply });
+    } else {
+      history.push({ role: 'assistant', content: reply });
     }
 
-    history.push({ role: 'assistant', content: reply });
     appendMessage('assistant', reply);
   } catch (e) {
     appendMessage('assistant', 'Connection error — please try again.');
@@ -317,7 +313,6 @@ function setLoading(val) {
 
 function resetChat() {
   history = [];
-  awaitingConfirmation = false;
   const msgs = document.getElementById('messages');
   msgs.innerHTML = '';
   const wrap = document.createElement('div');
