@@ -12,22 +12,10 @@
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       background: #f0ebe0;
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
       min-height: 100vh;
       padding: 24px;
-    }
-
-    #wordmark {
-      font-size: 18px;
-      font-weight: 400;
-      color: #1a2744;
-      letter-spacing: -0.3px;
-      margin-bottom: 16px;
-      align-self: flex-start;
-      max-width: 680px;
-      width: 100%;
     }
 
     #app {
@@ -35,7 +23,7 @@
       flex-direction: column;
       width: 100%;
       max-width: 680px;
-      height: 600px;
+      height: calc(100vh - 48px);
       background: #faf7f2;
       border: 0.5px solid #d8d0c0;
       border-radius: 4px;
@@ -53,7 +41,8 @@
 
     #header-left { display: flex; align-items: center; gap: 10px; }
 
-    #header-title { font-size: 14px; font-weight: 500; color: #fff; letter-spacing: 0.2px; }
+    #header-title { font-size: 13px; font-weight: 400; color: rgba(255,255,255,0.55); letter-spacing: 0.2px; }
+    #header-brand { font-size: 15px; font-weight: 500; color: #e8400a; letter-spacing: -0.2px; }
     #header-sub { font-size: 11px; color: rgba(255,255,255,0.55); margin-top: 1px; }
 
     #new-btn {
@@ -175,14 +164,12 @@
 </head>
 <body>
 
-<div id="wordmark">takanock</div>
-
 <div id="app">
   <div id="header">
     <div id="header-left">
       <div>
-        <div id="header-title">IT Help Desk</div>
-        <div id="header-sub">Submit a support request</div>
+        <div id="header-brand">takanock</div>
+        <div id="header-title">IT Help Desk — Submit a support request</div>
       </div>
     </div>
     <button id="new-btn" onclick="resetChat()">
@@ -220,12 +207,12 @@
 
   const SYSTEM_PROMPT = `You are the Takanock IT Help Desk intake assistant. Your job is to help Takanock employees submit IT support requests conversationally.
 
-When a user describes an issue, gather these fields through friendly conversation (don't ask for everything at once — let it flow naturally):
-- Name (full name)
-- Email (their Takanock email)
-- Issue category (Hardware, Software, Access/Permissions, Network, Other)
-- Brief description of the issue
-- Priority (Low, Medium, High, Urgent) — infer from context if possible and confirm
+When a user describes an issue, gather these fields through friendly conversation(don't ask for everything at once, but ask for the name and department at the same time first):
+- Submitter Name (full name)
+- Submitter Email (Takanock email), Do not ask them, use the convention: first letter of first name, last name, @takanock.com. If my name is John Smith, jsmith@takanock.com.
+-Request Type: (Hardware, Software, Access/Permissions, Network, Other)
+- Request Description: Brief description of the issue
+- Urgency: (Low, Medium, High, Urgent) — infer from context if possible and confirm
 - Any steps already tried
 
 Once you have enough info, summarize the ticket and confirm with the user before logging it. Say something like: "Here's what I'll log — does this look right?" Then if they confirm, tell them the ticket has been submitted and give them a reference number (format: TKN-IT-XXXX with a random 4-digit number).
