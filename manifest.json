@@ -7,8 +7,13 @@
   "theme_color": "#1a2744",
 "icons": [
   {
-    "src": "/itDesktop.png",
-    "sizes": "128x128",
+    "src": "/itDesktop192.png",
+    "sizes": "192x192",
+    "type": "image/png"
+  },
+  {
+    "src": "/itDesktop512.png",
+    "sizes": "512x512",
     "type": "image/png"
   }
 ]
