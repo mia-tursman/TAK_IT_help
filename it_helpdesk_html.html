@@ -215,7 +215,6 @@
 
 <script>
   // ⚠️ Replace with your actual Anthropic API key
-  const API_KEY = 'YOUR_ANTHROPIC_API_KEY ';
 
   const SYSTEM_PROMPT = `You are the Takanock IT Help Desk intake assistant. Your job is to help Takanock employees submit IT support requests conversationally.
 
@@ -246,21 +245,18 @@ Keep responses concise and friendly. Don't use jargon. If the user's issue is ur
     setLoading(true);
 
     try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': API_KEY,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-allow-browser': 'true'
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 1000,
-          system: SYSTEM_PROMPT,
-          messages: history
-        })
-      });
+const res = await fetch('/api/proxy', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    model: 'claude-sonnet-4-6',
+    max_tokens: 1000,
+    system: SYSTEM_PROMPT,
+    messages: history
+  })
+});
 
       const data = await res.json();
       const reply = data.content?.find(b => b.type === 'text')?.text || 'Sorry, something went wrong. Please try again.';
